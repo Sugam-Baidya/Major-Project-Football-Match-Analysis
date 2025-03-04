@@ -76,30 +76,7 @@ def main():
     st.sidebar.markdown('---')
 
     ## Page Setup
-    tab1, tab2, tab3 = st.tabs(["How to use?", "Team Colors", "Model Hyperparameters & Detection"])
-    with tab1:
-        st.header(':blue[Welcome!]')
-        st.subheader('Main Application Functionalities:', divider='blue')
-        st.markdown("""
-                    1. Football players, referee, and ball detection.
-                    2. Players team prediction.
-                    3. Estimation of players and ball positions on a tactical map.
-                    4. Ball Tracking.
-                    """)
-        st.subheader('How to use?', divider='blue')
-        st.markdown("""
-                    **There are two demo videos that are automaticaly loaded when you start the app, alongside the recommended settings and hyperparameters**
-                    1. Upload a video to analyse, using the sidebar menu "Browse files" button.
-                    2. Enter the team names that corresponds to the uploaded video in the text fields in the sidebar menu.
-                    3. Access the "Team colors" tab in the main page.
-                    4. Select a frame where players and goal keepers from both teams can be detected.
-                    5. Follow the instruction on the page to pick each team colors.
-                    6. Go to the "Model Hyperpramerters & Detection" tab, adjust hyperparameters and select the annotation options. (Default hyperparameters are recommended)
-                    7. Run Detection!
-                    8. If "save outputs" option was selected the saved video can be found in the "outputs" directory
-                    """)
-        st.write("Version 0.0.1")
-
+    tab2, tab3 = st.tabs(["Team Colors", "Model Hyperparameters & Detection"])
     with tab2:
         t1col1, t1col2 = st.columns([1,1])
         with t1col1:
