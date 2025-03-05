@@ -85,7 +85,7 @@ def main():
             for image in resource_files:
                 if image in line:
                     st.markdown(''.join(readme_buffer[:-1])) 
-                    st.image(f'Resources/{image}')
+                    st.image(f'./Resources/{image}')
                     readme_buffer.clear()
                     
         st.markdown(''.join(readme_buffer))
@@ -189,7 +189,7 @@ def main():
         st.markdown("---")
 
         
-        bcol1, bcol2 = st.columns([1,1])
+        bcol1,bcol2 = st.columns([1,1])
         with bcol1:
             # nbr_frames_no_ball_thresh = st.number_input("Ball track reset threshold (frames)", min_value=1, max_value=10000,
             #                                          value=30, help="After how many frames with no ball detection, should the track be reset?")
@@ -206,7 +206,6 @@ def main():
                 1: ball_track_dist_thresh,
                 2: max_track_length
             }
-        with bcol2:
             st.write("Annotation options:")
             bcol21t, bcol22t = st.columns([1,1])
             with bcol21t:
@@ -233,6 +232,7 @@ def main():
                 stop_detection = st.button(label='Stop Detection', disabled=stop_btn_state)
             with bcol24:
                 st.write('')
+            
 
 
     stframe = st.empty()
