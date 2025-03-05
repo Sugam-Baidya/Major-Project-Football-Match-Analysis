@@ -1,6 +1,7 @@
 import tempfile
 import numpy as np
-
+import glob
+import os
 import streamlit as st
 from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
@@ -74,15 +75,20 @@ def main():
     ## Page Setup
     tab1, tab2, tab3 = st.tabs(["About Project","Team Colors", "Model Hyperparameters & Detection"])
     with tab1:
-        st.header(':blue[Welcome!]')
-        st.subheader('Main Application Functionalities:', divider='blue')
-        st.markdown("""
+        with open("../readme.md", 'r') as f:
+            readme_line = f.readlines()
+            readme_buffer = []
+            resource_files = [os.path.basename(x) for x in glob.glob(f'Resources/*')]
+            # resource_files
+        for line in readme_line :
+            readme_buffer.append(line) 
+            for image in resource_files:
+                if image in line:
+                    st.markdown(''.join(readme_buffer[:-1])) 
+                    st.image(f'Resources/{image}')
+                    readme_buffer.clear()
                     
-                    """)
-        st.subheader('How to use?', divider='blue')
-        st.markdown("""
-                   
-                    """)
+        st.markdown(''.join(readme_buffer))
     with tab2:
         t1col1, t1col2 = st.columns([1,1])
         with t1col1:
