@@ -1,41 +1,43 @@
 # Import libraries
-import numpy as np
-import pandas as pd
-import streamlit as st
+import numpy as np # powerful library for numerical computing, supporting arrays, matrices, and mathematical functions.
+import pandas as pd #  Used for data manipulation and analysis, particularly with tabular data like CSV files.
+import streamlit as st #  Python framework for building interactive web applications
 
 
-import cv2
-import skimage
-from PIL import Image, ImageColor
-from ultralytics import YOLO
-from sklearn.metrics import mean_squared_error
+import cv2 # (OpenCV) popular library for image processing and computer vision tasks (e.g., reading images, edge detection, transformations).
+import skimage # (scikit-image) – Another image processing library, often used for advanced filtering, segmentation, and transformations.
+from PIL import Image, ImageColor # Used for working with images (e.g., opening, editing, and converting formats).
+from ultralytics import YOLO #import model 
+from sklearn.metrics import mean_squared_error #  Used to calculate the Mean Squared Error (MSE), a metric for evaluating the performance of regression models.
 
-import os
-import json
-import yaml
-import time
+import os # Provides functions to interact with the operating system
+import json # Handles JSON (JavaScript Object Notation) data, useful for reading and writing structured data.
+import yaml # used to read, write, and parse YAML (YAML Ain't Markup Language) files.
+import time # Provides time-related functions (e.g., delays, timestamps).
 
 def get_labels_dics():
-    # Get tactical map keypoints positions dictionary
+    ## Get tactical map keypoints positions dictionary ##
     json_path = "../pitch map labels position.json"
-    with open(json_path, 'r') as f:
-        keypoints_map_pos = json.load(f)
+    with open(json_path, 'r') as f: # opens a file located at json_path in read mode ('r') and assigns it to variable f
+        keypoints_map_pos = json.load(f) #reads th content of open file "f" and converts it into python list/dictionary and stores in keypoints_map_pos
 
-    # Get football field keypoints numerical to alphabetical mapping
+    ## Get football field keypoints numerical to alphabetical mapping ##
     yaml_path = "../config pitch dataset.yaml"
     with open(yaml_path, 'r') as file:
-        classes_names_dic = yaml.safe_load(file)
-    classes_names_dic = classes_names_dic['names']
+        classes_names_dic = yaml.safe_load(file) # reads and parses the YAML file into a Python dictionary ; safe_load() ensures security by preventing code execution
+    classes_names_dic = classes_names_dic['names'] # extracts and stores only the value associated with "names" into classes_names_dic.
 
-    # Get football field keypoints numerical to alphabetical mapping
+    ## Get football field players numerical to alphabetical mapping ##
     yaml_path = "../config players dataset.yaml"
     with open(yaml_path, 'r') as file:
         labels_dic = yaml.safe_load(file)
     labels_dic = labels_dic['names']
-    return keypoints_map_pos, classes_names_dic, labels_dic
+    return keypoints_map_pos, classes_names_dic, labels_dic # functions returns keypoint position, field class names mapped with their numbers and player,ball,rfree mapped to numbers
 
 def create_colors_info(team1_name, team1_p_color, team1_gk_color, team2_name, team2_p_color, team2_gk_color):
-    team1_p_color_rgb = ImageColor.getcolor(team1_p_color, "RGB")
+    # ImageColor.getcolor(color, "RGB") is a function from the Pillow (PIL) library that converts a color name or hex code into an RGB tuple.
+    # Converting colours in HEX code into RGB format
+    team1_p_color_rgb = ImageColor.getcolor(team1_p_color, "RGB") 
     team1_gk_color_rgb = ImageColor.getcolor(team1_gk_color, "RGB")
     team2_p_color_rgb = ImageColor.getcolor(team2_p_color, "RGB")
     team2_gk_color_rgb = ImageColor.getcolor(team2_gk_color, "RGB")
@@ -46,9 +48,10 @@ def create_colors_info(team1_name, team1_p_color, team1_gk_color, team2_name, te
         team2_name:[team2_p_color_rgb, team2_gk_color_rgb]
     }
 
-    colors_list = colors_dic[team1_name]+colors_dic[team2_name] # Define color list to be used for detected player team prediction
-    color_list_lab = [skimage.color.rgb2lab([i/255 for i in c]) for c in colors_list] # Converting color_list to L*a*b* space
-    return colors_dic, color_list_lab
+    colors_list = colors_dic[team1_name]+colors_dic[team2_name] # Define color list to be used for detected player team prediction in RGB format
+    # yesto format hunxa [[(x,y,z),(x,y,z)],[(x,y,z),(x,y,z)]]
+    color_list_lab = [skimage.color.rgb2lab([i/255 for i in c]) for c in colors_list] # Converting color_list to L*a*b* space ;i/255 for i in c normalizes the RGB values from (0-255) to (0-1).
+    return colors_dic, color_list_lab # returns colour dictionary and color list in lab format
 
 # yo def cahi output file banauna lai 
 def generate_file_name():
@@ -63,6 +66,8 @@ def generate_file_name():
 
 def detect(cap, stframe, output_file_name, save_output, model_players, model_keypoints,
             hyper_params, ball_track_hyperparams, plot_hyperparams, num_pal_colors, colors_dic, color_list_lab):
+    # cap:- Likely an OpenCV video capture object (cv2.VideoCapture()) used to process video frames.
+    # stframe:- Appears to be related to Streamlit, meaning the function may be displaying real-time detection output in a Streamlit app.
 
     show_k = plot_hyperparams[0]
     show_pal = plot_hyperparams[1]
@@ -83,15 +88,16 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
         output_file_name = generate_file_name()
 
     # Read tactical map image
-    tac_map = cv2.imread('../tactical map.jpg')
-    tac_width = tac_map.shape[0]
-    tac_height = tac_map.shape[1]
+    tac_map = cv2.imread('../tactical map.jpg') # read tactical_map.jpg and store it in tac_map;in array (height, width, channels)
+    tac_width = tac_map.shape[0] #  extracts the first dimension of the shape, which represents the height of the array; corresponds to the number of pixels in the vertical direction.
+    tac_height = tac_map.shape[1] # extracts the second dimension of the shape, which represents the width of the array; corresponds to the number of pixels in the horizontal direction.
     
     # Create output video writer
-    if save_output:
+    if save_output: # checks if the save output flag is true
+        # cap.get(cv2.CAP_PROP_FRAME_WIDTH) retrieves the width of the frames from the video capture object (cap)/video; adding tac wieght
         width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) + tac_width
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) + tac_height
-        output = cv2.VideoWriter(f'./outputs/{output_file_name}.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (width, height))
+        output = cv2.VideoWriter(f'./outputs/{output_file_name}.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 45.0, (width, height)) # *mp4v is codex
 
     # Create progress bar
     tot_nbr_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
