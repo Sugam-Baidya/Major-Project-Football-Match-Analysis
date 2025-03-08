@@ -40,17 +40,20 @@ def create_colors_info(team1_name, team1_p_color, team1_gk_color, team2_name, te
     team2_p_color_rgb = ImageColor.getcolor(team2_p_color, "RGB")
     team2_gk_color_rgb = ImageColor.getcolor(team2_gk_color, "RGB")
 
+    # create a dictionary to map teams to their colors(both player and gk)
     colors_dic = {
         team1_name:[team1_p_color_rgb, team1_gk_color_rgb],
         team2_name:[team2_p_color_rgb, team2_gk_color_rgb]
     }
+
     colors_list = colors_dic[team1_name]+colors_dic[team2_name] # Define color list to be used for detected player team prediction
     color_list_lab = [skimage.color.rgb2lab([i/255 for i in c]) for c in colors_list] # Converting color_list to L*a*b* space
     return colors_dic, color_list_lab
 
+# yo def cahi output file banauna lai 
 def generate_file_name():
-    list_video_files = os.listdir('./outputs/')
-    idx = 0
+    list_video_files = os.listdir('./outputs/') # accessing 'os' module; retrieves a list of all files in the ./outputs/ directory and stores them in the list_video_files list.
+    idx = 0 #used to generate file name
     while True:
         idx +=1
         output_file_name = f'detect_{idx}'
