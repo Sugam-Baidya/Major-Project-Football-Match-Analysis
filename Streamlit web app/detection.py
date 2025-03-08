@@ -92,7 +92,7 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
     tac_width = tac_map.shape[0] #  extracts the first dimension of the shape, which represents the height of the array; corresponds to the number of pixels in the vertical direction.
     tac_height = tac_map.shape[1] # extracts the second dimension of the shape, which represents the width of the array; corresponds to the number of pixels in the horizontal direction.
     
-    # Create output video writer
+    # Create output video writer; output video banauxa yesle original video ra tactical map ko size jodera
     if save_output: # checks if the save output flag is true
         # cap.get(cv2.CAP_PROP_FRAME_WIDTH) retrieves the width of the frames from the video capture object (cap)/video; adding tac wieght
         width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) + tac_width
@@ -100,8 +100,8 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
         output = cv2.VideoWriter(f'./outputs/{output_file_name}.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 45.0, (width, height)) # *mp4v is codex
 
     # Create progress bar
-    tot_nbr_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    st_prog_bar = st.progress(0, text='Detection starting.')
+    tot_nbr_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) # retrieves the total number of frames in the video file or stream and int() converts it into integer
+    st_prog_bar = st.progress(0, text='Detection starting.') # 0% Detection Strating bhanera euta progress bar banauxa
 
     keypoints_map_pos, classes_names_dic, labels_dic = get_labels_dics()
 
@@ -110,9 +110,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
     # Set variable to record the time at which we processed current frame 
     new_frame_time = 0
     
-    # Store the ball track history
-    ball_track_history = {'src':[],
-                          'dst':[]
+    # Store the ball track history in a dictionary, 'src' and 'dst' are keyvalue pair linked to a list
+    ball_track_history = {'src':[], #source
+                          'dst':[] #destination
     }
 
     nbr_frames_no_ball = 0
@@ -120,16 +120,21 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
     
 
     # Loop over input video frames
-    for frame_nbr in range(1, tot_nbr_frames+1):
+    for frame_nbr in range(1, tot_nbr_frames+1): # frame_nbr: current frame number in the loop
 
         # Update progress bar
+        # percentage nikalera update garne progress bar. Percentage cahi total no of frames ra processded frames bata nikalne
         percent_complete = int(frame_nbr/(tot_nbr_frames)*100)
         st_prog_bar.progress(percent_complete, text=f"Detection in progress ({percent_complete}%)")
 
         # Read a frame from the video
+        #cap.read() returns two values 
+        # frame = The actual frame data, which is typically a NumPy array representing the image
         success, frame = cap.read()
 
         # Reset tactical map image for each new frame
+        # Modifications to tac_map_copy won't affect the original tac_map
+        # If you don't use .copy(), and you just do tac_map_copy = tac_map, both variables will point to the same underlying data. Any change made to one will be reflected in the other.
         tac_map_copy = tac_map.copy()
 
         if nbr_frames_no_ball>nbr_frames_no_ball_thresh:
@@ -143,6 +148,10 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             ################################################
 
             # Run YOLOv8 players inference on the frame
+            # Results_players is likely an object that contains the model's output, which typically includes:
+            # Bounding boxes for the detected objects (players).
+            # Class labels for the detected objects.
+            # Confidence scores for each detection.
             results_players = model_players(frame, conf=p_conf)
             # Run YOLOv8 field keypoints inference on the frame
             results_keypoints = model_keypoints(frame, conf=k_conf)
@@ -150,8 +159,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             
 
             ## Extract detections information
-            bboxes_p = results_players[0].boxes.xyxy.cpu().numpy()                          # Detected players, referees and ball (x,y,x,y) bounding boxes
-            bboxes_p_c = results_players[0].boxes.xywh.cpu().numpy()                        # Detected players, referees and ball (x,y,w,h) bounding boxes    
+            # .cpu : moves the tensor (if it's stored on a GPU) to the CPU
+            bboxes_p = results_players[0].boxes.xyxy.cpu().numpy()                          # Detected players, referees and ball (x,y,x,y) bounding boxes; coordinates f the bounding box
+            bboxes_p_c = results_players[0].boxes.xywh.cpu().numpy()                        # Detected players, referees and ball (x,y,w,h) bounding boxes; coordinates of center and width and height of box
             labels_p = list(results_players[0].boxes.cls.cpu().numpy())                     # Detected players, referees and ball labels list
             confs_p = list(results_players[0].boxes.conf.cpu().numpy())                     # Detected players, referees and ball confidence level
             
@@ -166,6 +176,10 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
 
             # Extract detected field keypoints coordiantes on the current frame
             detected_labels_src_pts = np.array([list(np.round(bboxes_k_c[i][:2]).astype(int)) for i in range(bboxes_k_c.shape[0])])
+            #[:2], you are selecting only the first two elements of the bounding box — the x and y coordinates of the center.
+            # np.round() rounds the x and y coordinates to the nearest integer.
+            # .astype(int):converts the rounded coordinates from float to integer type.
+            # gives total number of bounding boxes detected.
 
             # Get the detected field keypoints coordinates on the tactical map
             detected_labels_dst_pts = np.array([keypoints_map_pos[i] for i in detected_labels])
@@ -191,9 +205,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                     update_homography = True
 
                 if  update_homography:
-                    homog, mask = cv2.findHomography(detected_labels_src_pts,                   # Calculate homography matrix
+                    homog, mask = cv2.findHomography(detected_labels_src_pts,                  # Calculate homography matrix using openCVs findHomography() function
                                                 detected_labels_dst_pts)                  
-            if 'homog' in locals():
+            if 'homog' in locals():                                                         # checks whether the variable homog(3*3 matrix) exists in the current local scope.
                 detected_labels_prev = detected_labels.copy()                               # Save current detected keypoint labels for next frame
                 detected_labels_src_pts_prev = detected_labels_src_pts.copy()               # Save current detected keypoint coordiantes for next frame
 
@@ -211,15 +225,21 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                     nbr_frames_no_ball=0
 
                 # Transform players coordinates from frame plane to tactical map plance using the calculated Homography matrix
-                pred_dst_pts = []                                                           # Initialize players tactical map coordiantes list
+                pred_dst_pts = []                                                           # Initialize players tactical map coordinates list;stores transformed player positions on tactical map
                 for pt in detected_ppos_src_pts:                                            # Loop over players frame coordiantes
                     pt = np.append(np.array(pt), np.array([1]), axis=0)                     # Covert to homogeneous coordiantes
-                    dest_point = np.matmul(homog, np.transpose(pt))                              # Apply homography transofrmation
+                    dest_point = np.matmul(homog, np.transpose(pt))                         # Apply homography transofrmation
+                    #dest_point is a numpy array.
+                    #suru ma pt bhaneko (x,y) from video coordinate
+                    #yeslai maltrix multiply garna (x,y,1) banaunu parx which is called homogeneous coordinates
+                    #matrix multiplicaion garne homoraphy apply garna
+                    # ani divide by 3rd element garn to remove the third added component 
                     dest_point = dest_point/dest_point[2]                                   # Revert to 2D-coordiantes
                     pred_dst_pts.append(list(np.transpose(dest_point)[:2]))                 # Update players tactical map coordiantes list
-                pred_dst_pts = np.array(pred_dst_pts)
+                pred_dst_pts = np.array(pred_dst_pts)                                       # Converts list to a NumPy
 
                 # Transform ball coordinates from frame plane to tactical map plance using the calculated Homography matrix
+                # same as aove for players
                 if detected_ball_src_pos is not None:
                     pt = np.append(np.array(detected_ball_src_pos), np.array([1]), axis=0)
                     dest_point = np.matmul(homog, np.transpose(pt))
@@ -227,18 +247,21 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                     detected_ball_dst_pos = np.transpose(dest_point)
 
                     # track ball history
-                    if show_b:
+                    if show_b: #check if ball tracking is enabled
                         if len(ball_track_history['src'])>0 :
-                            if np.linalg.norm(detected_ball_src_pos-ball_track_history['src'][-1])<ball_track_dist_thresh:
+                            if np.linalg.norm(detected_ball_src_pos-ball_track_history['src'][-1])<ball_track_dist_thresh: #calculates euclidean distance ; checks if less than threshold
+                                # Stores the integer coordinates of the ball
                                 ball_track_history['src'].append((int(detected_ball_src_pos[0]), int(detected_ball_src_pos[1])))
                                 ball_track_history['dst'].append((int(detected_ball_dst_pos[0]), int(detected_ball_dst_pos[1])))
                             else:
+                                # resets the ball track history ie when ball has moves too far , threshold bhanda dherai move bhayidiyo
                                 ball_track_history['src']=[(int(detected_ball_src_pos[0]), int(detected_ball_src_pos[1]))]
                                 ball_track_history['dst']=[(int(detected_ball_dst_pos[0]), int(detected_ball_dst_pos[1]))]
                         else:
+                            # history nai xaina bhane initialize gardine yesle cahi
                             ball_track_history['src'].append((int(detected_ball_src_pos[0]), int(detected_ball_src_pos[1])))
                             ball_track_history['dst'].append((int(detected_ball_dst_pos[0]), int(detected_ball_dst_pos[1])))
-                    
+                # ensures the list doesnt grow too long. max_track_length bhanda dherai bhayo bhane oldest lai po gardai janxa
                 if len(ball_track_history) > max_track_length:
                     ball_track_history['src'].pop(0)
                     ball_track_history['dst'].pop(0)
