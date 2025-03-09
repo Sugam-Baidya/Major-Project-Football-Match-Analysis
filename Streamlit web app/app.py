@@ -151,10 +151,6 @@ def main():
                 st.session_state[f"{team2_name} GK color"] = team2_gk_color
         st.markdown('---')
 
-
-        
-            
-
         with t1col2:
             extracted_frame = st.empty()
             extracted_frame.image(frame, use_column_width=True, channels="BGR")
@@ -162,7 +158,18 @@ def main():
         
     colors_dic, color_list_lab = create_colors_info(team1_name, st.session_state[f"{team1_name} P color"], st.session_state[f"{team1_name} GK color"],
                                                      team2_name, st.session_state[f"{team2_name} P color"], st.session_state[f"{team2_name} GK color"])
-
+    with tab4:
+        st.title("Player Movement Tracing")
+        st.markdown("---")
+        ccol1, ccol2 = st.columns([1,1])
+        with ccol1:
+            st.write(f'{team1_name}')
+            heatmap1 = st.empty()
+        with ccol2:
+            st.write(f'{team2_name}')
+            heatmap2 = st.empty()
+        st.markdown("---")
+        
 
     with tab3:
         t2col1, t2col2 = st.columns([1,1])
@@ -238,9 +245,7 @@ def main():
     cap = cv2.VideoCapture(tempf.name)
     status = False
 
-    with tab4:
-        heatmap1 = st.empty()
-        heatmap2 = st.empty()
+    
         
     if start_detection and not stop_detection:
         st.toast(f'Detection Started!')
