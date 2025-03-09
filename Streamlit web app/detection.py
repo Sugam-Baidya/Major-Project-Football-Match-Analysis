@@ -15,6 +15,10 @@ import json # Handles JSON (JavaScript Object Notation) data, useful for reading
 import yaml # used to read, write, and parse YAML (YAML Ain't Markup Language) files.
 import time # Provides time-related functions (e.g., delays, timestamps).
 
+import matplotlib.pyplot as plt                    # For visualization
+from matplotlib.colors import LinearSegmentedColormap  # For custom color maps
+from scipy.ndimage import gaussian_filter
+
 def get_labels_dics():
     ## Get tactical map keypoints positions dictionary ##
     json_path = "../pitch map labels position.json"
@@ -64,7 +68,7 @@ def generate_file_name():
             break
     return output_file_name
 
-def detect(cap, stframe, output_file_name, save_output, model_players, model_keypoints,
+def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
             hyper_params, ball_track_hyperparams, plot_hyperparams, num_pal_colors, colors_dic, color_list_lab):
     # cap:- Likely an OpenCV video capture object (cv2.VideoCapture()) used to process video frames.
     # stframe:- Appears to be related to Streamlit, meaning the function may be displaying real-time detection output in a Streamlit app.
@@ -88,7 +92,8 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
         output_file_name = generate_file_name()
 
     # Read tactical map image
-    tac_map = cv2.imread('../tactical map.jpg') # read tactical_map.jpg and store it in tac_map;in array (height, width, channels)
+    tac_map = cv2.imread('../tactical map.jpg')  # read tactical_map.jpg and store it in tac_map;in array (height, width, channels)
+    tac_map_1 = cv2.imread('../tactical map.jpg')
     tac_width = tac_map.shape[0] #  extracts the first dimension of the shape, which represents the height of the array; corresponds to the number of pixels in the vertical direction.
     tac_height = tac_map.shape[1] # extracts the second dimension of the shape, which represents the width of the array; corresponds to the number of pixels in the horizontal direction.
     
@@ -117,7 +122,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
 
     nbr_frames_no_ball = 0
 
-    
+    tac_map_copy_team_a = tac_map.copy()
+    tac_map_copy_team_b = tac_map.copy()
+    team_chooser = ""
 
     # Loop over input video frames
     for frame_nbr in range(1, tot_nbr_frames+1): # frame_nbr: current frame number in the loop
@@ -135,7 +142,14 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
         # Reset tactical map image for each new frame
         # Modifications to tac_map_copy won't affect the original tac_map
         # If you don't use .copy(), and you just do tac_map_copy = tac_map, both variables will point to the same underlying data. Any change made to one will be reflected in the other.
-        tac_map_copy = tac_map.copy()
+
+        tac_map_copy = tac_map.copy() 
+        #tac_map_1 = tac_map.copy()
+        #if team_chooser != "":
+            #if team_chooser == "a":
+                #tac_map_1 = tac_map_copy_team_a.copy() 
+           # elif team_chooser == "b":
+                #tac_map_1 = tac_map_copy_team_b.copy()
 
         if nbr_frames_no_ball>nbr_frames_no_ball_thresh:
             ball_track_history['dst'] = []
@@ -324,7 +338,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                 vote_list=[]
                 # Loop over distances for each color 
                 for dist_list in distance_feats:
-                    team_idx = dist_list.index(min(dist_list))//nbr_team_colors                     # Assign team index for current color based on min distance
+                    #Finds the smallest distance
+                    # Retrieves the index of this smallest distance.
+                    team_idx = dist_list.index(min(dist_list))//nbr_team_colors                  # Assign team index for current color based on min distance
                     vote_list.append(team_idx)                                                      # Update vote voting list with current color team prediction
                 players_teams_list.append(max(vote_list, key=vote_list.count))                      # Predict current player team by vote counting
 
@@ -334,7 +350,8 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             #################################################
             
             ball_color_bgr = (0,0,255)                                                                          # Color (GBR) for ball annotation on tactical map
-            j=0                                                                                                 # Initializing counter of detected players
+            j=0     
+            k=1                                                                                            # Initializing counter of detected players
             palette_box_size = 10                                                                               # Set color box size in pixels (for display)
             annotated_frame = frame                                                                             # Create annotated frame
 
@@ -353,7 +370,6 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                                                                     (int(bboxes_p[i,2])+palette_box_size,
                                                                     int(bboxes_p[i,1])+(palette_box_size)*(k+1)),
                                                                     c_bgr, -1)
-                    
                     team_name = list(colors_dic.keys())[players_teams_list[j]]                                  # Get detected player team prediction
                     color_rgb = colors_dic[team_name][0]                                                        # Get detected player team color
                     color_bgr = color_rgb[::-1]                                                                 # Convert color to bgr
@@ -371,8 +387,19 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                                             radius=5, color=color_bgr, thickness=-1)
                         tac_map_copy = cv2.circle(tac_map_copy, (int(pred_dst_pts[j][0]),int(pred_dst_pts[j][1])),
                                             radius=5, color=(0,0,0), thickness=1)
-
-                    j+=1                                                                                        # Update players counter
+                        if team_name == next(iter(colors_dic)):
+                            tac_map_1 = tac_map_copy_team_a
+                        elif team_name == list(colors_dic)[1]:
+                            tac_map_1 = tac_map_copy_team_b
+                        tac_map_1 = cv2.circle(tac_map_1, (int(pred_dst_pts[j][0]),int(pred_dst_pts[j][1])),
+                                            radius=2, color=color_bgr, thickness=1)
+                    if team_name == next(iter(colors_dic)):
+                        tac_map_copy_team_a = tac_map_1
+                    elif team_name == list(colors_dic)[1]:
+                        tac_map_copy_team_b = tac_map_1
+                    tac_map_1 = tac_map.copy()
+                    j+=1  
+                    k=j+1                                                                                     # Update players counter
                 else:                                                                                           # Display annotation for otehr detections (label 1, 2)
                     annotated_frame = cv2.rectangle(annotated_frame, (int(bboxes_p[i,0]), int(bboxes_p[i,1])),  # Add white colored bbox annotations
                                                     (int(bboxes_p[i,2]), int(bboxes_p[i,3])), (255,255,255), 1)
@@ -417,11 +444,18 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             #cv2.imshow("YOLOv8 Inference", frame)
             if save_output:
                 output.write(cv2.resize(final_img, (width, height)))
-
+        
+    cv2.imwrite(os.path.join("./outputs","output_image_team_A.jpg"),tac_map_copy_team_a)
+    cv2.imwrite(os.path.join("./outputs","output_image_team_B.jpg"),tac_map_copy_team_b)
+    
+    heatmap1.image(tac_map_copy_team_a, channels="BGR")
+    heatmap2.image(tac_map_copy_team_b, channels="BGR")
 
     # Remove progress bar and return        
     st_prog_bar.empty()
     return True
+
+
         
     
 

@@ -25,7 +25,7 @@ def main():
     input_vide_file = st.sidebar.file_uploader('Upload a video file', type=['mp4','mov', 'avi', 'm4v', 'asf'])
 
     demo_vid_paths={
-        "Demo 1":'./demo_vid_1.mp4',
+        "Demo 1":'./demo_vid_11.mp4',
         "Demo 2":'./demo_vid_2.mp4'
     }
     demo_vid_path = demo_vid_paths[demo_selected]
@@ -73,7 +73,7 @@ def main():
     
 
     ## Page Setup
-    tab1, tab2, tab3 = st.tabs(["About Project","Team Colors", "Model Hyperparameters & Detection"])
+    tab1, tab2, tab3,tab4 = st.tabs(["About Project","Team Colors", "Model Hyperparameters & Detection","Analysis"])
     with tab1:
         with open("../readme.md", 'r') as f:
             readme_line = f.readlines()
@@ -234,14 +234,17 @@ def main():
             with bcol24:
                 st.write('')
 
-
     stframe = st.empty()
     cap = cv2.VideoCapture(tempf.name)
     status = False
 
+    with tab4:
+        heatmap1 = st.empty()
+        heatmap2 = st.empty()
+        
     if start_detection and not stop_detection:
         st.toast(f'Detection Started!')
-        status = detect(cap, stframe, output_file_name, save_output, model_players, model_keypoints,
+        status = detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
                          detection_hyper_params, ball_track_hyperparams, plot_hyperparams,
                            num_pal_colors, colors_dic, color_list_lab)
     else:
@@ -253,6 +256,7 @@ def main():
     if status:
         st.toast(f'Detection Completed!')
         cap.release()
+
 
 
 if __name__=='__main__':
