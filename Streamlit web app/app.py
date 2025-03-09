@@ -1,6 +1,7 @@
 import tempfile
 import numpy as np
-
+import glob
+import os
 import streamlit as st
 from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
@@ -11,20 +12,20 @@ from detection import create_colors_info, detect
 
 def main():
 
-    st.set_page_config(page_title="AI Powered Web Application for Football Tactical Analysis", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Major Project", layout="wide", initial_sidebar_state="collapsed")
     st.title("Football Players Detection With Team Prediction & Tactical Map")
-    st.subheader(":red[Works only with Tactical Camera footage]")
+   
 
-    st.sidebar.title("Main Settings")
+    st.sidebar.title("Upload")
     demo_selected = st.sidebar.radio(label="Select Demo Video", options=["Demo 1", "Demo 2"], horizontal=True)
 
     ## Sidebar Setup
-    st.sidebar.markdown('---')
+    
     st.sidebar.subheader("Video Upload")
     input_vide_file = st.sidebar.file_uploader('Upload a video file', type=['mp4','mov', 'avi', 'm4v', 'asf'])
 
     demo_vid_paths={
-        "Demo 1":'./demo_vid_1.mp4',
+        "Demo 1":'./demo_vid_11.mp4',
         "Demo 2":'./demo_vid_2.mp4'
     }
     demo_vid_path = demo_vid_paths[demo_selected]
@@ -69,37 +70,25 @@ def main():
     model_keypoints = YOLO("../models/Yolo8M Field Keypoints/weights/best.pt")
 
 
-    st.sidebar.markdown('---')
-    st.sidebar.subheader("Team Names")
-    team1_name = st.sidebar.text_input(label='First Team Name', value=selected_team_info["team1_name"])
-    team2_name = st.sidebar.text_input(label='Second Team Name', value=selected_team_info["team2_name"])
-    st.sidebar.markdown('---')
+    
 
     ## Page Setup
-    tab1, tab2, tab3 = st.tabs(["How to use?", "Team Colors", "Model Hyperparameters & Detection"])
+    tab1, tab2, tab3,tab4 = st.tabs(["About Project","Team Colors", "Model Hyperparameters & Detection","Analysis"])
     with tab1:
-        st.header(':blue[Welcome!]')
-        st.subheader('Main Application Functionalities:', divider='blue')
-        st.markdown("""
-                    1. Football players, referee, and ball detection.
-                    2. Players team prediction.
-                    3. Estimation of players and ball positions on a tactical map.
-                    4. Ball Tracking.
-                    """)
-        st.subheader('How to use?', divider='blue')
-        st.markdown("""
-                    **There are two demo videos that are automaticaly loaded when you start the app, alongside the recommended settings and hyperparameters**
-                    1. Upload a video to analyse, using the sidebar menu "Browse files" button.
-                    2. Enter the team names that corresponds to the uploaded video in the text fields in the sidebar menu.
-                    3. Access the "Team colors" tab in the main page.
-                    4. Select a frame where players and goal keepers from both teams can be detected.
-                    5. Follow the instruction on the page to pick each team colors.
-                    6. Go to the "Model Hyperpramerters & Detection" tab, adjust hyperparameters and select the annotation options. (Default hyperparameters are recommended)
-                    7. Run Detection!
-                    8. If "save outputs" option was selected the saved video can be found in the "outputs" directory
-                    """)
-        st.write("Version 0.0.1")
-
+        with open("../readme.md", 'r') as f:
+            readme_line = f.readlines()
+            readme_buffer = []
+            resource_files = [os.path.basename(x) for x in glob.glob(f'Resources/*')]
+            # resource_files
+        for line in readme_line :
+            readme_buffer.append(line) 
+            for image in resource_files:
+                if image in line:
+                    st.markdown(''.join(readme_buffer[:-1])) 
+                    st.image(f'Resources/{image}')
+                    readme_buffer.clear()
+                    
+        st.markdown(''.join(readme_buffer))
     with tab2:
         t1col1, t1col2 = st.columns([1,1])
         with t1col1:
@@ -129,6 +118,9 @@ def main():
                 concat_det_imgs_row1 = cv2.hconcat(detections_imgs_grid[0])
                 concat_det_imgs_row2 = cv2.hconcat(detections_imgs_grid[1])
                 concat_det_imgs = cv2.vconcat([concat_det_imgs_row1,concat_det_imgs_row2])
+            st.write("Team Names")
+            team1_name = st.text_input(label='First Team Name', value=selected_team_info["team1_name"])
+            team2_name = st.text_input(label='Second Team Name', value=selected_team_info["team2_name"])
             st.write("Detected players")
             value = streamlit_image_coordinates(concat_det_imgs, key="numpy")
             #value_radio_dic = defaultdict(lambda: None)
@@ -199,12 +191,16 @@ def main():
         
         bcol1, bcol2 = st.columns([1,1])
         with bcol1:
-            nbr_frames_no_ball_thresh = st.number_input("Ball track reset threshold (frames)", min_value=1, max_value=10000,
-                                                     value=30, help="After how many frames with no ball detection, should the track be reset?")
-            ball_track_dist_thresh = st.number_input("Ball track distance threshold (pixels)", min_value=1, max_value=1280,
-                                                        value=100, help="Maximum allowed distance between two consecutive balls detection to keep the current track.")
-            max_track_length = st.number_input("Maximum ball track length (Nbr. detections)", min_value=1, max_value=1000,
-                                                        value=35, help="Maximum total number of ball detections to keep in tracking history")
+            # nbr_frames_no_ball_thresh = st.number_input("Ball track reset threshold (frames)", min_value=1, max_value=10000,
+            #                                          value=30, help="After how many frames with no ball detection, should the track be reset?")
+            # ball_track_dist_thresh = st.number_input("Ball track distance threshold (pixels)", min_value=1, max_value=1280,
+            #                                             value=100, help="Maximum allowed distance between two consecutive balls detection to keep the current track.")
+            # max_track_length = st.number_input("Maximum ball track length (Nbr. detections)", min_value=1, max_value=1000,
+            #                                             value=35, help="Maximum total number of ball detections to keep in tracking history")
+            nbr_frames_no_ball_thresh = 30
+            ball_track_dist_thresh = 100
+            max_track_length = 35
+
             ball_track_hyperparams = {
                 0: nbr_frames_no_ball_thresh,
                 1: ball_track_dist_thresh,
@@ -238,14 +234,17 @@ def main():
             with bcol24:
                 st.write('')
 
-
     stframe = st.empty()
     cap = cv2.VideoCapture(tempf.name)
     status = False
 
+    with tab4:
+        heatmap1 = st.empty()
+        heatmap2 = st.empty()
+        
     if start_detection and not stop_detection:
         st.toast(f'Detection Started!')
-        status = detect(cap, stframe, output_file_name, save_output, model_players, model_keypoints,
+        status = detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
                          detection_hyper_params, ball_track_hyperparams, plot_hyperparams,
                            num_pal_colors, colors_dic, color_list_lab)
     else:
@@ -257,6 +256,7 @@ def main():
     if status:
         st.toast(f'Detection Completed!')
         cap.release()
+
 
 
 if __name__=='__main__':

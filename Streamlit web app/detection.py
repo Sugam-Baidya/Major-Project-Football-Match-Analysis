@@ -1,56 +1,66 @@
 # Import libraries
-import numpy as np
-import pandas as pd
-import streamlit as st
+import numpy as np # powerful library for numerical computing, supporting arrays, matrices, and mathematical functions.
+import pandas as pd #  Used for data manipulation and analysis, particularly with tabular data like CSV files.
+import streamlit as st #  Python framework for building interactive web applications
 
 
-import cv2
-import skimage
-from PIL import Image, ImageColor
-from ultralytics import YOLO
-from sklearn.metrics import mean_squared_error
+import cv2 # (OpenCV) popular library for image processing and computer vision tasks (e.g., reading images, edge detection, transformations).
+import skimage # (scikit-image) – Another image processing library, often used for advanced filtering, segmentation, and transformations.
+from PIL import Image, ImageColor # Used for working with images (e.g., opening, editing, and converting formats).
+from ultralytics import YOLO #import model 
+from sklearn.metrics import mean_squared_error #  Used to calculate the Mean Squared Error (MSE), a metric for evaluating the performance of regression models.
 
-import os
-import json
-import yaml
-import time
+import os # Provides functions to interact with the operating system
+import json # Handles JSON (JavaScript Object Notation) data, useful for reading and writing structured data.
+import yaml # used to read, write, and parse YAML (YAML Ain't Markup Language) files.
+import time # Provides time-related functions (e.g., delays, timestamps).
+
+import matplotlib.pyplot as plt                    # For visualization
+from matplotlib.colors import LinearSegmentedColormap  # For custom color maps
+from scipy.ndimage import gaussian_filter
 
 def get_labels_dics():
-    # Get tactical map keypoints positions dictionary
+    ## Get tactical map keypoints positions dictionary ##
     json_path = "../pitch map labels position.json"
-    with open(json_path, 'r') as f:
-        keypoints_map_pos = json.load(f)
+    with open(json_path, 'r') as f: # opens a file located at json_path in read mode ('r') and assigns it to variable f
+        keypoints_map_pos = json.load(f) #reads th content of open file "f" and converts it into python list/dictionary and stores in keypoints_map_pos
 
-    # Get football field keypoints numerical to alphabetical mapping
+    ## Get football field keypoints numerical to alphabetical mapping ##
     yaml_path = "../config pitch dataset.yaml"
     with open(yaml_path, 'r') as file:
-        classes_names_dic = yaml.safe_load(file)
-    classes_names_dic = classes_names_dic['names']
+        classes_names_dic = yaml.safe_load(file) # reads and parses the YAML file into a Python dictionary ; safe_load() ensures security by preventing code execution
+    classes_names_dic = classes_names_dic['names'] # extracts and stores only the value associated with "names" into classes_names_dic.
 
-    # Get football field keypoints numerical to alphabetical mapping
+    ## Get football field players numerical to alphabetical mapping ##
     yaml_path = "../config players dataset.yaml"
     with open(yaml_path, 'r') as file:
         labels_dic = yaml.safe_load(file)
     labels_dic = labels_dic['names']
-    return keypoints_map_pos, classes_names_dic, labels_dic
+    return keypoints_map_pos, classes_names_dic, labels_dic # functions returns keypoint position, field class names mapped with their numbers and player,ball,rfree mapped to numbers
 
 def create_colors_info(team1_name, team1_p_color, team1_gk_color, team2_name, team2_p_color, team2_gk_color):
-    team1_p_color_rgb = ImageColor.getcolor(team1_p_color, "RGB")
+    # ImageColor.getcolor(color, "RGB") is a function from the Pillow (PIL) library that converts a color name or hex code into an RGB tuple.
+    # Converting colours in HEX code into RGB format
+    team1_p_color_rgb = ImageColor.getcolor(team1_p_color, "RGB") 
     team1_gk_color_rgb = ImageColor.getcolor(team1_gk_color, "RGB")
     team2_p_color_rgb = ImageColor.getcolor(team2_p_color, "RGB")
     team2_gk_color_rgb = ImageColor.getcolor(team2_gk_color, "RGB")
 
+    # create a dictionary to map teams to their colors(both player and gk)
     colors_dic = {
         team1_name:[team1_p_color_rgb, team1_gk_color_rgb],
         team2_name:[team2_p_color_rgb, team2_gk_color_rgb]
     }
-    colors_list = colors_dic[team1_name]+colors_dic[team2_name] # Define color list to be used for detected player team prediction
-    color_list_lab = [skimage.color.rgb2lab([i/255 for i in c]) for c in colors_list] # Converting color_list to L*a*b* space
-    return colors_dic, color_list_lab
 
+    colors_list = colors_dic[team1_name]+colors_dic[team2_name] # Define color list to be used for detected player team prediction in RGB format
+    # yesto format hunxa [[(x,y,z),(x,y,z)],[(x,y,z),(x,y,z)]]
+    color_list_lab = [skimage.color.rgb2lab([i/255 for i in c]) for c in colors_list] # Converting color_list to L*a*b* space ;i/255 for i in c normalizes the RGB values from (0-255) to (0-1).
+    return colors_dic, color_list_lab # returns colour dictionary and color list in lab format
+
+# yo def cahi output file banauna lai 
 def generate_file_name():
-    list_video_files = os.listdir('./outputs/')
-    idx = 0
+    list_video_files = os.listdir('./outputs/') # accessing 'os' module; retrieves a list of all files in the ./outputs/ directory and stores them in the list_video_files list.
+    idx = 0 #used to generate file name
     while True:
         idx +=1
         output_file_name = f'detect_{idx}'
@@ -58,8 +68,10 @@ def generate_file_name():
             break
     return output_file_name
 
-def detect(cap, stframe, output_file_name, save_output, model_players, model_keypoints,
+def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
             hyper_params, ball_track_hyperparams, plot_hyperparams, num_pal_colors, colors_dic, color_list_lab):
+    # cap:- Likely an OpenCV video capture object (cv2.VideoCapture()) used to process video frames.
+    # stframe:- Appears to be related to Streamlit, meaning the function may be displaying real-time detection output in a Streamlit app.
 
     show_k = plot_hyperparams[0]
     show_pal = plot_hyperparams[1]
@@ -80,19 +92,21 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
         output_file_name = generate_file_name()
 
     # Read tactical map image
-    tac_map = cv2.imread('../tactical map.jpg')
-    tac_width = tac_map.shape[0]
-    tac_height = tac_map.shape[1]
+    tac_map = cv2.imread('../tactical map.jpg')  # read tactical_map.jpg and store it in tac_map;in array (height, width, channels)
+    tac_map_1 = cv2.imread('../tactical map.jpg')
+    tac_width = tac_map.shape[0] #  extracts the first dimension of the shape, which represents the height of the array; corresponds to the number of pixels in the vertical direction.
+    tac_height = tac_map.shape[1] # extracts the second dimension of the shape, which represents the width of the array; corresponds to the number of pixels in the horizontal direction.
     
-    # Create output video writer
-    if save_output:
+    # Create output video writer; output video banauxa yesle original video ra tactical map ko size jodera
+    if save_output: # checks if the save output flag is true
+        # cap.get(cv2.CAP_PROP_FRAME_WIDTH) retrieves the width of the frames from the video capture object (cap)/video; adding tac wieght
         width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) + tac_width
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) + tac_height
-        output = cv2.VideoWriter(f'./outputs/{output_file_name}.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (width, height))
+        output = cv2.VideoWriter(f'./outputs/{output_file_name}.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 45.0, (width, height)) # *mp4v is codex
 
     # Create progress bar
-    tot_nbr_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    st_prog_bar = st.progress(0, text='Detection starting.')
+    tot_nbr_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) # retrieves the total number of frames in the video file or stream and int() converts it into integer
+    st_prog_bar = st.progress(0, text='Detection starting.') # 0% Detection Strating bhanera euta progress bar banauxa
 
     keypoints_map_pos, classes_names_dic, labels_dic = get_labels_dics()
 
@@ -101,27 +115,41 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
     # Set variable to record the time at which we processed current frame 
     new_frame_time = 0
     
-    # Store the ball track history
-    ball_track_history = {'src':[],
-                          'dst':[]
+    # Store the ball track history in a dictionary, 'src' and 'dst' are keyvalue pair linked to a list
+    ball_track_history = {'src':[], #source
+                          'dst':[] #destination
     }
 
     nbr_frames_no_ball = 0
 
-    
+    tac_map_copy_team_a = tac_map.copy()
+    tac_map_copy_team_b = tac_map.copy()
+    team_chooser = ""
 
     # Loop over input video frames
-    for frame_nbr in range(1, tot_nbr_frames+1):
+    for frame_nbr in range(1, tot_nbr_frames+1): # frame_nbr: current frame number in the loop
 
         # Update progress bar
+        # percentage nikalera update garne progress bar. Percentage cahi total no of frames ra processded frames bata nikalne
         percent_complete = int(frame_nbr/(tot_nbr_frames)*100)
         st_prog_bar.progress(percent_complete, text=f"Detection in progress ({percent_complete}%)")
 
         # Read a frame from the video
+        #cap.read() returns two values 
+        # frame = The actual frame data, which is typically a NumPy array representing the image
         success, frame = cap.read()
 
         # Reset tactical map image for each new frame
-        tac_map_copy = tac_map.copy()
+        # Modifications to tac_map_copy won't affect the original tac_map
+        # If you don't use .copy(), and you just do tac_map_copy = tac_map, both variables will point to the same underlying data. Any change made to one will be reflected in the other.
+
+        tac_map_copy = tac_map.copy() 
+        #tac_map_1 = tac_map.copy()
+        #if team_chooser != "":
+            #if team_chooser == "a":
+                #tac_map_1 = tac_map_copy_team_a.copy() 
+           # elif team_chooser == "b":
+                #tac_map_1 = tac_map_copy_team_b.copy()
 
         if nbr_frames_no_ball>nbr_frames_no_ball_thresh:
             ball_track_history['dst'] = []
@@ -134,6 +162,10 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             ################################################
 
             # Run YOLOv8 players inference on the frame
+            # Results_players is likely an object that contains the model's output, which typically includes:
+            # Bounding boxes for the detected objects (players).
+            # Class labels for the detected objects.
+            # Confidence scores for each detection.
             results_players = model_players(frame, conf=p_conf)
             # Run YOLOv8 field keypoints inference on the frame
             results_keypoints = model_keypoints(frame, conf=k_conf)
@@ -141,8 +173,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             
 
             ## Extract detections information
-            bboxes_p = results_players[0].boxes.xyxy.cpu().numpy()                          # Detected players, referees and ball (x,y,x,y) bounding boxes
-            bboxes_p_c = results_players[0].boxes.xywh.cpu().numpy()                        # Detected players, referees and ball (x,y,w,h) bounding boxes    
+            # .cpu : moves the tensor (if it's stored on a GPU) to the CPU
+            bboxes_p = results_players[0].boxes.xyxy.cpu().numpy()                          # Detected players, referees and ball (x,y,x,y) bounding boxes; coordinates f the bounding box
+            bboxes_p_c = results_players[0].boxes.xywh.cpu().numpy()                        # Detected players, referees and ball (x,y,w,h) bounding boxes; coordinates of center and width and height of box
             labels_p = list(results_players[0].boxes.cls.cpu().numpy())                     # Detected players, referees and ball labels list
             confs_p = list(results_players[0].boxes.conf.cpu().numpy())                     # Detected players, referees and ball confidence level
             
@@ -157,6 +190,10 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
 
             # Extract detected field keypoints coordiantes on the current frame
             detected_labels_src_pts = np.array([list(np.round(bboxes_k_c[i][:2]).astype(int)) for i in range(bboxes_k_c.shape[0])])
+            #[:2], you are selecting only the first two elements of the bounding box — the x and y coordinates of the center.
+            # np.round() rounds the x and y coordinates to the nearest integer.
+            # .astype(int):converts the rounded coordinates from float to integer type.
+            # gives total number of bounding boxes detected.
 
             # Get the detected field keypoints coordinates on the tactical map
             detected_labels_dst_pts = np.array([keypoints_map_pos[i] for i in detected_labels])
@@ -182,9 +219,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                     update_homography = True
 
                 if  update_homography:
-                    homog, mask = cv2.findHomography(detected_labels_src_pts,                   # Calculate homography matrix
+                    homog, mask = cv2.findHomography(detected_labels_src_pts,                  # Calculate homography matrix using openCVs findHomography() function
                                                 detected_labels_dst_pts)                  
-            if 'homog' in locals():
+            if 'homog' in locals():                                                         # checks whether the variable homog(3*3 matrix) exists in the current local scope.
                 detected_labels_prev = detected_labels.copy()                               # Save current detected keypoint labels for next frame
                 detected_labels_src_pts_prev = detected_labels_src_pts.copy()               # Save current detected keypoint coordiantes for next frame
 
@@ -202,15 +239,21 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                     nbr_frames_no_ball=0
 
                 # Transform players coordinates from frame plane to tactical map plance using the calculated Homography matrix
-                pred_dst_pts = []                                                           # Initialize players tactical map coordiantes list
+                pred_dst_pts = []                                                           # Initialize players tactical map coordinates list;stores transformed player positions on tactical map
                 for pt in detected_ppos_src_pts:                                            # Loop over players frame coordiantes
                     pt = np.append(np.array(pt), np.array([1]), axis=0)                     # Covert to homogeneous coordiantes
-                    dest_point = np.matmul(homog, np.transpose(pt))                              # Apply homography transofrmation
+                    dest_point = np.matmul(homog, np.transpose(pt))                         # Apply homography transofrmation
+                    #dest_point is a numpy array.
+                    #suru ma pt bhaneko (x,y) from video coordinate
+                    #yeslai maltrix multiply garna (x,y,1) banaunu parx which is called homogeneous coordinates
+                    #matrix multiplicaion garne homoraphy apply garna
+                    # ani divide by 3rd element garn to remove the third added component 
                     dest_point = dest_point/dest_point[2]                                   # Revert to 2D-coordiantes
                     pred_dst_pts.append(list(np.transpose(dest_point)[:2]))                 # Update players tactical map coordiantes list
-                pred_dst_pts = np.array(pred_dst_pts)
+                pred_dst_pts = np.array(pred_dst_pts)                                       # Converts list to a NumPy
 
                 # Transform ball coordinates from frame plane to tactical map plance using the calculated Homography matrix
+                # same as aove for players
                 if detected_ball_src_pos is not None:
                     pt = np.append(np.array(detected_ball_src_pos), np.array([1]), axis=0)
                     dest_point = np.matmul(homog, np.transpose(pt))
@@ -218,18 +261,21 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                     detected_ball_dst_pos = np.transpose(dest_point)
 
                     # track ball history
-                    if show_b:
+                    if show_b: #check if ball tracking is enabled
                         if len(ball_track_history['src'])>0 :
-                            if np.linalg.norm(detected_ball_src_pos-ball_track_history['src'][-1])<ball_track_dist_thresh:
+                            if np.linalg.norm(detected_ball_src_pos-ball_track_history['src'][-1])<ball_track_dist_thresh: #calculates euclidean distance ; checks if less than threshold
+                                # Stores the integer coordinates of the ball
                                 ball_track_history['src'].append((int(detected_ball_src_pos[0]), int(detected_ball_src_pos[1])))
                                 ball_track_history['dst'].append((int(detected_ball_dst_pos[0]), int(detected_ball_dst_pos[1])))
                             else:
+                                # resets the ball track history ie when ball has moves too far , threshold bhanda dherai move bhayidiyo
                                 ball_track_history['src']=[(int(detected_ball_src_pos[0]), int(detected_ball_src_pos[1]))]
                                 ball_track_history['dst']=[(int(detected_ball_dst_pos[0]), int(detected_ball_dst_pos[1]))]
                         else:
+                            # history nai xaina bhane initialize gardine yesle cahi
                             ball_track_history['src'].append((int(detected_ball_src_pos[0]), int(detected_ball_src_pos[1])))
                             ball_track_history['dst'].append((int(detected_ball_dst_pos[0]), int(detected_ball_dst_pos[1])))
-                    
+                # ensures the list doesnt grow too long. max_track_length bhanda dherai bhayo bhane oldest lai po gardai janxa
                 if len(ball_track_history) > max_track_length:
                     ball_track_history['src'].pop(0)
                     ball_track_history['dst'].pop(0)
@@ -292,7 +338,9 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                 vote_list=[]
                 # Loop over distances for each color 
                 for dist_list in distance_feats:
-                    team_idx = dist_list.index(min(dist_list))//nbr_team_colors                     # Assign team index for current color based on min distance
+                    #Finds the smallest distance
+                    # Retrieves the index of this smallest distance.
+                    team_idx = dist_list.index(min(dist_list))//nbr_team_colors                  # Assign team index for current color based on min distance
                     vote_list.append(team_idx)                                                      # Update vote voting list with current color team prediction
                 players_teams_list.append(max(vote_list, key=vote_list.count))                      # Predict current player team by vote counting
 
@@ -302,7 +350,8 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             #################################################
             
             ball_color_bgr = (0,0,255)                                                                          # Color (GBR) for ball annotation on tactical map
-            j=0                                                                                                 # Initializing counter of detected players
+            j=0     
+            k=1                                                                                            # Initializing counter of detected players
             palette_box_size = 10                                                                               # Set color box size in pixels (for display)
             annotated_frame = frame                                                                             # Create annotated frame
 
@@ -321,7 +370,6 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                                                                     (int(bboxes_p[i,2])+palette_box_size,
                                                                     int(bboxes_p[i,1])+(palette_box_size)*(k+1)),
                                                                     c_bgr, -1)
-                    
                     team_name = list(colors_dic.keys())[players_teams_list[j]]                                  # Get detected player team prediction
                     color_rgb = colors_dic[team_name][0]                                                        # Get detected player team color
                     color_bgr = color_rgb[::-1]                                                                 # Convert color to bgr
@@ -339,8 +387,19 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
                                             radius=5, color=color_bgr, thickness=-1)
                         tac_map_copy = cv2.circle(tac_map_copy, (int(pred_dst_pts[j][0]),int(pred_dst_pts[j][1])),
                                             radius=5, color=(0,0,0), thickness=1)
-
-                    j+=1                                                                                        # Update players counter
+                        if team_name == next(iter(colors_dic)):
+                            tac_map_1 = tac_map_copy_team_a
+                        elif team_name == list(colors_dic)[1]:
+                            tac_map_1 = tac_map_copy_team_b
+                        tac_map_1 = cv2.circle(tac_map_1, (int(pred_dst_pts[j][0]),int(pred_dst_pts[j][1])),
+                                            radius=2, color=color_bgr, thickness=1)
+                    if team_name == next(iter(colors_dic)):
+                        tac_map_copy_team_a = tac_map_1
+                    elif team_name == list(colors_dic)[1]:
+                        tac_map_copy_team_b = tac_map_1
+                    tac_map_1 = tac_map.copy()
+                    j+=1  
+                    k=j+1                                                                                     # Update players counter
                 else:                                                                                           # Display annotation for otehr detections (label 1, 2)
                     annotated_frame = cv2.rectangle(annotated_frame, (int(bboxes_p[i,0]), int(bboxes_p[i,1])),  # Add white colored bbox annotations
                                                     (int(bboxes_p[i,2]), int(bboxes_p[i,3])), (255,255,255), 1)
@@ -385,11 +444,18 @@ def detect(cap, stframe, output_file_name, save_output, model_players, model_key
             #cv2.imshow("YOLOv8 Inference", frame)
             if save_output:
                 output.write(cv2.resize(final_img, (width, height)))
-
+        
+    cv2.imwrite(os.path.join("./outputs","output_image_team_A.jpg"),tac_map_copy_team_a)
+    cv2.imwrite(os.path.join("./outputs","output_image_team_B.jpg"),tac_map_copy_team_b)
+    
+    heatmap1.image(tac_map_copy_team_a, channels="BGR")
+    heatmap2.image(tac_map_copy_team_b, channels="BGR")
 
     # Remove progress bar and return        
     st_prog_bar.empty()
     return True
+
+
         
     
 
