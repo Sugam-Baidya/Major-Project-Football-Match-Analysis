@@ -68,7 +68,7 @@ def generate_file_name():
             break
     return output_file_name
 
-def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
+def detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_output, model_players, model_keypoints,
             hyper_params, ball_track_hyperparams, plot_hyperparams, num_pal_colors, colors_dic, color_list_lab):
     # cap:- Likely an OpenCV video capture object (cv2.VideoCapture()) used to process video frames.
     # stframe:- Appears to be related to Streamlit, meaning the function may be displaying real-time detection output in a Streamlit app.
@@ -500,7 +500,8 @@ def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_
     # Update Streamlit display
     heatmap1.image(heatmap_team_a, channels="BGR")
     heatmap2.image(heatmap_team_b, channels="BGR")
-
+    trace1.image(tac_map_copy_team_a, channels="BGR")
+    trace2.image(tac_map_copy_team_b, channels="BGR")
     # Remove progress bar and return        
     st_prog_bar.empty()
     return True

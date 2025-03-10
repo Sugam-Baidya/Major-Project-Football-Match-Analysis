@@ -160,7 +160,7 @@ def main():
     colors_dic, color_list_lab = create_colors_info(team1_name, st.session_state[f"{team1_name} P color"], st.session_state[f"{team1_name} GK color"],
                                                      team2_name, st.session_state[f"{team2_name} P color"], st.session_state[f"{team2_name} GK color"])
     with tab4:
-        st.title("Player Movement Tracing")
+        st.title("Heatmap")
         st.markdown("---")
         ccol1, ccol2 = st.columns([1,1])
         with ccol1:
@@ -169,6 +169,15 @@ def main():
         with ccol2:
             st.write(f'{team2_name} HeatMap')
             heatmap2 = st.empty()
+        st.title("Player Tracing")
+        
+        dcol1, dcol2 = st.columns([1,1])
+        with dcol1:
+            st.write(f'{team1_name} Trace')
+            trace1 = st.empty()
+        with dcol2:
+            st.write(f'{team2_name} Trace')
+            trace2 = st.empty()
         st.markdown("---")
         
 
@@ -242,15 +251,15 @@ def main():
             with bcol24:
                 st.write('')
 
-    stframe = st.empty()
-    cap = cv2.VideoCapture(tempf.name)
-    status = False
+        stframe = st.empty()
+        cap = cv2.VideoCapture(tempf.name)
+        status = False
 
     
         
     if start_detection and not stop_detection:
         st.toast(f'Detection Started!')
-        status = detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
+        status = detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_output, model_players, model_keypoints,
                          detection_hyper_params, ball_track_hyperparams, plot_hyperparams,
                            num_pal_colors, colors_dic, color_list_lab)
     else:
