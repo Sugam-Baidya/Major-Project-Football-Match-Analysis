@@ -7,7 +7,8 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
 from ultralytics import YOLO
 from detection import create_colors_info, detect
-
+import matplotlib.pyplot as plt  # Added for heatmap
+from scipy.ndimage import gaussian_filter  # Added for heatmap
 
 
 def main():
@@ -163,10 +164,10 @@ def main():
         st.markdown("---")
         ccol1, ccol2 = st.columns([1,1])
         with ccol1:
-            st.write(f'{team1_name}')
+            st.write(f'{team1_name} HeatMap')
             heatmap1 = st.empty()
         with ccol2:
-            st.write(f'{team2_name}')
+            st.write(f'{team2_name} HeatMap')
             heatmap2 = st.empty()
         st.markdown("---")
         
