@@ -184,8 +184,8 @@ def main():
     with tab3:
         t2col1, t2col2 = st.columns([1,1])
         with t2col1:
-            player_model_conf_thresh = st.slider('PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.6)
-            keypoints_model_conf_thresh = st.slider('Field Keypoints PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.7)
+            player_model_conf_thresh = st.slider('PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.3)
+            keypoints_model_conf_thresh = st.slider('Field Keypoints PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.35)
             keypoints_displacement_mean_tol = st.slider('Keypoints Displacement RMSE Tolerance (pixels)', min_value=-1, max_value=100, value=7,
                                                          help="Indicates the maximum allowed average distance between the position of the field keypoints\
                                                            in current and previous detections. It is used to determine wether to update homography matrix or not. ")
@@ -232,11 +232,13 @@ def main():
             with bcol22t:
                 show_pal = st.toggle(label="Show Color Palettes", value=True)
                 show_b = st.toggle(label="Show Ball Tracks", value=True)
+                show_possession = st.toggle(label="Show Ball Possession", value=True)  # New toggle for possession
             plot_hyperparams = {
                 0: show_k,
                 1: show_pal,
                 2: show_b,
-                3: show_p
+                3: show_p,
+                4: show_possession  # Add possession to plot_hyperparams
             }
             st.markdown('---')
             bcol21, bcol22, bcol23, bcol24 = st.columns([1.5,1,1,1])

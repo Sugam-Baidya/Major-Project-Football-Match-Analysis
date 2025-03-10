@@ -131,6 +131,10 @@ def detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_
     tac_map_copy_team_b = tac_map.copy()
     team_chooser = ""
 
+    # New variable for ball possession
+    possession_team = None  # Will store the team name with possession
+    possession_threshold = 100  # Distance threshold (in pixels) to determine possession
+
     # Loop over input video frames
     for frame_nbr in range(1, tot_nbr_frames+1): # frame_nbr: current frame number in the loop
 
@@ -240,6 +244,7 @@ def detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_
 
                 if detected_ball_src_pos is None:
                     nbr_frames_no_ball+=1
+                    possession_team = None  # No possession if no ball is detected
                 else: 
                     nbr_frames_no_ball=0
 
@@ -349,7 +354,14 @@ def detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_
                     vote_list.append(team_idx)                                                      # Update vote voting list with current color team prediction
                 players_teams_list.append(max(vote_list, key=vote_list.count))                      # Predict current player team by vote counting
 
-
+            # Ball Possession Logic
+            if detected_ball_src_pos is not None and len(detected_ppos_src_pts) > 0:
+                distances = [np.linalg.norm(detected_ball_src_pos - player_pos) for player_pos in detected_ppos_src_pts]
+                min_distance_idx = np.argmin(distances)
+                if distances[min_distance_idx] < possession_threshold:
+                    possession_team = list(colors_dic.keys())[players_teams_list[min_distance_idx]]
+                else:
+                    possession_team = None  # Ball is not close enough to any player
             #################### Part 3 #####################
             # Updated Frame & Tactical Map With Annotations #
             #################################################
@@ -435,7 +447,14 @@ def detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_
                 points = np.hstack(ball_track_history['dst']).astype(np.int32).reshape((-1, 1, 2))
                 tac_map_copy = cv2.polylines(tac_map_copy, [points], isClosed=False, color=(0, 0, 100), thickness=2)
 
-            
+            # Add Ball Possession Annotation
+            if possession_team is not None:
+                possession_color = colors_dic[possession_team][0][::-1]  # Convert RGB to BGR
+                cv2.putText(annotated_frame, f"Possession: {possession_team}", (20, 60), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, possession_color, 2)
+            else:
+                cv2.putText(annotated_frame, "Possession: None", (20, 60), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
             
             # Combine annotated frame and tactical map in one image with colored border separation
             border_color = [255,255,255]                                                                        # Set border color (BGR)
