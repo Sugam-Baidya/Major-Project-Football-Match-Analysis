@@ -7,7 +7,8 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 import cv2
 from ultralytics import YOLO
 from detection import create_colors_info, detect
-
+import matplotlib.pyplot as plt  # Added for heatmap
+from scipy.ndimage import gaussian_filter  # Added for heatmap
 
 
 def main():
@@ -151,10 +152,6 @@ def main():
                 st.session_state[f"{team2_name} GK color"] = team2_gk_color
         st.markdown('---')
 
-
-        
-            
-
         with t1col2:
             extracted_frame = st.empty()
             extracted_frame.image(frame, use_column_width=True, channels="BGR")
@@ -162,13 +159,33 @@ def main():
         
     colors_dic, color_list_lab = create_colors_info(team1_name, st.session_state[f"{team1_name} P color"], st.session_state[f"{team1_name} GK color"],
                                                      team2_name, st.session_state[f"{team2_name} P color"], st.session_state[f"{team2_name} GK color"])
-
+    with tab4:
+        st.title("Heatmap")
+        st.markdown("---")
+        ccol1, ccol2 = st.columns([1,1])
+        with ccol1:
+            st.write(f'{team1_name} HeatMap')
+            heatmap1 = st.empty()
+        with ccol2:
+            st.write(f'{team2_name} HeatMap')
+            heatmap2 = st.empty()
+        st.title("Player Tracing")
+        
+        dcol1, dcol2 = st.columns([1,1])
+        with dcol1:
+            st.write(f'{team1_name} Trace')
+            trace1 = st.empty()
+        with dcol2:
+            st.write(f'{team2_name} Trace')
+            trace2 = st.empty()
+        st.markdown("---")
+        
 
     with tab3:
         t2col1, t2col2 = st.columns([1,1])
         with t2col1:
-            player_model_conf_thresh = st.slider('PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.6)
-            keypoints_model_conf_thresh = st.slider('Field Keypoints PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.7)
+            player_model_conf_thresh = st.slider('PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.3)
+            keypoints_model_conf_thresh = st.slider('Field Keypoints PLayers Detection Confidence Threshold', min_value=0.0, max_value=1.0, value=0.35)
             keypoints_displacement_mean_tol = st.slider('Keypoints Displacement RMSE Tolerance (pixels)', min_value=-1, max_value=100, value=7,
                                                          help="Indicates the maximum allowed average distance between the position of the field keypoints\
                                                            in current and previous detections. It is used to determine wether to update homography matrix or not. ")
@@ -215,11 +232,13 @@ def main():
             with bcol22t:
                 show_pal = st.toggle(label="Show Color Palettes", value=True)
                 show_b = st.toggle(label="Show Ball Tracks", value=True)
+                show_possession = st.toggle(label="Show Ball Possession", value=True)  # New toggle for possession
             plot_hyperparams = {
                 0: show_k,
                 1: show_pal,
                 2: show_b,
-                3: show_p
+                3: show_p,
+                4: show_possession  # Add possession to plot_hyperparams
             }
             st.markdown('---')
             bcol21, bcol22, bcol23, bcol24 = st.columns([1.5,1,1,1])
@@ -234,17 +253,15 @@ def main():
             with bcol24:
                 st.write('')
 
-    stframe = st.empty()
-    cap = cv2.VideoCapture(tempf.name)
-    status = False
+        stframe = st.empty()
+        cap = cv2.VideoCapture(tempf.name)
+        status = False
 
-    with tab4:
-        heatmap1 = st.empty()
-        heatmap2 = st.empty()
+    
         
     if start_detection and not stop_detection:
         st.toast(f'Detection Started!')
-        status = detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
+        status = detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_output, model_players, model_keypoints,
                          detection_hyper_params, ball_track_hyperparams, plot_hyperparams,
                            num_pal_colors, colors_dic, color_list_lab)
     else:

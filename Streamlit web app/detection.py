@@ -68,10 +68,15 @@ def generate_file_name():
             break
     return output_file_name
 
-def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_players, model_keypoints,
+def detect(cap, stframe,heatmap1,heatmap2,trace1,trace2, output_file_name, save_output, model_players, model_keypoints,
             hyper_params, ball_track_hyperparams, plot_hyperparams, num_pal_colors, colors_dic, color_list_lab):
     # cap:- Likely an OpenCV video capture object (cv2.VideoCapture()) used to process video frames.
     # stframe:- Appears to be related to Streamlit, meaning the function may be displaying real-time detection output in a Streamlit app.
+    
+    # Initialize variables for heatmap
+    team_a_positions = []
+    team_b_positions = []
+    team_names = list(colors_dic.keys())
 
     show_k = plot_hyperparams[0]
     show_pal = plot_hyperparams[1]
@@ -125,6 +130,10 @@ def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_
     tac_map_copy_team_a = tac_map.copy()
     tac_map_copy_team_b = tac_map.copy()
     team_chooser = ""
+
+    # New variable for ball possession
+    possession_team = None  # Will store the team name with possession
+    possession_threshold = 100  # Distance threshold (in pixels) to determine possession
 
     # Loop over input video frames
     for frame_nbr in range(1, tot_nbr_frames+1): # frame_nbr: current frame number in the loop
@@ -235,6 +244,7 @@ def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_
 
                 if detected_ball_src_pos is None:
                     nbr_frames_no_ball+=1
+                    possession_team = None  # No possession if no ball is detected
                 else: 
                     nbr_frames_no_ball=0
 
@@ -344,7 +354,14 @@ def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_
                     vote_list.append(team_idx)                                                      # Update vote voting list with current color team prediction
                 players_teams_list.append(max(vote_list, key=vote_list.count))                      # Predict current player team by vote counting
 
-
+            # Ball Possession Logic
+            if detected_ball_src_pos is not None and len(detected_ppos_src_pts) > 0:
+                distances = [np.linalg.norm(detected_ball_src_pos - player_pos) for player_pos in detected_ppos_src_pts]
+                min_distance_idx = np.argmin(distances)
+                if distances[min_distance_idx] < possession_threshold:
+                    possession_team = list(colors_dic.keys())[players_teams_list[min_distance_idx]]
+                else:
+                    possession_team = None  # Ball is not close enough to any player
             #################### Part 3 #####################
             # Updated Frame & Tactical Map With Annotations #
             #################################################
@@ -358,7 +375,16 @@ def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_
             # Loop over all detected object by players detection model
             for i in range(bboxes_p.shape[0]):
                 conf = confs_p[i]                                                                               # Get confidence of current detected object
-                if labels_p[i]==0:                                                                              # Display annotation for detected players (label 0)
+                if labels_p[i]==0:   
+                    if 'homog' in locals():
+                        team_name = list(colors_dic.keys())[players_teams_list[j]]
+                        player_pos = (int(pred_dst_pts[j][0]), int(pred_dst_pts[j][1])) 
+
+                        # Store positions for respective teams
+                        if team_name == team_names[0]:
+                            team_a_positions.append(player_pos)
+                        elif team_name == team_names[1]:
+                            team_b_positions.append(player_pos)                                                                          # Display annotation for detected players (label 0)
                     
                     # Display extracted color palette for each detected player
                     if show_pal:
@@ -421,7 +447,14 @@ def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_
                 points = np.hstack(ball_track_history['dst']).astype(np.int32).reshape((-1, 1, 2))
                 tac_map_copy = cv2.polylines(tac_map_copy, [points], isClosed=False, color=(0, 0, 100), thickness=2)
 
-            
+            # Add Ball Possession Annotation
+            if possession_team is not None:
+                possession_color = colors_dic[possession_team][0][::-1]  # Convert RGB to BGR
+                cv2.putText(annotated_frame, f"Possession: {possession_team}", (20, 60), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, possession_color, 2)
+            else:
+                cv2.putText(annotated_frame, "Possession: None", (20, 60), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
             
             # Combine annotated frame and tactical map in one image with colored border separation
             border_color = [255,255,255]                                                                        # Set border color (BGR)
@@ -444,13 +477,50 @@ def detect(cap, stframe,heatmap1,heatmap2, output_file_name, save_output, model_
             #cv2.imshow("YOLOv8 Inference", frame)
             if save_output:
                 output.write(cv2.resize(final_img, (width, height)))
+
+    # After the loop, generate and save heatmaps
+    def create_heatmap(positions, base_map, output_path):
+        # Create a blank heatmap array
+        heatmap_data = np.zeros((base_map.shape[0], base_map.shape[1]))
         
+        # Add points to heatmap
+        for x, y in positions:
+            if 0 <= x < heatmap_data.shape[1] and 0 <= y < heatmap_data.shape[0]:
+                heatmap_data[y, x] += 1
+        
+        # Apply Gaussian blur to smooth the heatmap
+        heatmap_data = gaussian_filter(heatmap_data, sigma=20)
+        
+        # Normalize heatmap data
+        if heatmap_data.max() > 0:
+            heatmap_data = heatmap_data / heatmap_data.max()
+        
+        # Create heatmap visualization
+        plt.figure(figsize=(base_map.shape[1]/100, base_map.shape[0]/100))
+        plt.imshow(cv2.cvtColor(base_map, cv2.COLOR_BGR2RGB))
+        plt.imshow(heatmap_data, cmap='hot', alpha=0.6, interpolation='nearest')
+        plt.axis('off')
+        
+        # Save the heatmap
+        plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+        plt.close()
+        
+        # Load the saved heatmap as an image
+        heatmap_img = cv2.imread(output_path)
+        return heatmap_img 
+
     cv2.imwrite(os.path.join("./outputs","output_image_team_A.jpg"),tac_map_copy_team_a)
     cv2.imwrite(os.path.join("./outputs","output_image_team_B.jpg"),tac_map_copy_team_b)
     
-    heatmap1.image(tac_map_copy_team_a, channels="BGR")
-    heatmap2.image(tac_map_copy_team_b, channels="BGR")
-
+   # Generate and save heatmaps for both teams
+    heatmap_team_a = create_heatmap(team_a_positions, tac_map, './outputs/heatmap_team_A.jpg')
+    heatmap_team_b = create_heatmap(team_b_positions, tac_map, './outputs/heatmap_team_B.jpg')
+    
+    # Update Streamlit display
+    heatmap1.image(heatmap_team_a, channels="BGR")
+    heatmap2.image(heatmap_team_b, channels="BGR")
+    trace1.image(tac_map_copy_team_a, channels="BGR")
+    trace2.image(tac_map_copy_team_b, channels="BGR")
     # Remove progress bar and return        
     st_prog_bar.empty()
     return True
