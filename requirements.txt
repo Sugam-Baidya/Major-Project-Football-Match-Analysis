@@ -1,7 +1,7 @@
-torch
-ultralytics
+numpy
+ultralytics==8.0.208
 opencv-python
-pillow
-scikit-image
-scikit-learn
+matplotlib
+scipy
 streamlit
+streamlit-image-coordinates
